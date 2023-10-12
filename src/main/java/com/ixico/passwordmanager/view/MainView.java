@@ -56,6 +56,8 @@ public class MainView {
         startHbox.setAlignment(Pos.CENTER_RIGHT);
         startHbox.setPadding(new Insets(20));
 
+        var passwordTitle = new Text("Enter Master Password:");
+        passwordTitle.getStyleClass().add(Styles.TITLE_2);
 
         var passwordField = new PasswordField();
         passwordField.setPromptText("password");
@@ -96,7 +98,7 @@ public class MainView {
         var label3 = labelWithTick("Numbers and symbols");
 
 
-        root.getChildren().addAll(imageView , passwordInputGroup,hbox, new Separator(Orientation.HORIZONTAL), label1, label2, label3);
+        root.getChildren().addAll(imageView , passwordTitle,passwordInputGroup,hbox, new Separator(Orientation.HORIZONTAL), label1, label2, label3);
     }
 
     public Parent getParent() {
