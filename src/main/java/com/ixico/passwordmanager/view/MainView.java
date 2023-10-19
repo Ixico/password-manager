@@ -1,11 +1,10 @@
 package com.ixico.passwordmanager.view;
 
-import atlantafx.base.controls.ModalPane;
-import atlantafx.base.controls.Spacer;
-import atlantafx.base.controls.Tile;
 import atlantafx.base.layout.InputGroup;
 import atlantafx.base.theme.Styles;
-import javafx.event.EventHandler;
+import com.ixico.passwordmanager.MainController;
+import com.ixico.passwordmanager.model.MainModel;
+import com.ixico.passwordmanager.service.MainService;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
@@ -13,99 +12,158 @@ import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
+import javafx.stage.PopupWindow;
+import javafx.util.Duration;
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.kordamp.ikonli.material2.Material2AL;
-import org.kordamp.ikonli.material2.Material2MZ;
-import org.kordamp.ikonli.material2.Material2OutlinedAL;
-import org.kordamp.ikonli.material2.Material2RoundAL;
 
 public class MainView {
 
+    private final MainController controller;
+
+    private final MainModel model;
+
     private final VBox root;
 
-    public MainView() {
-        this.root = new VBox();
-        root.setAlignment(Pos.CENTER);
-        root.setSpacing(20);
-        root.setPadding(new Insets(20));
-        initialize();
-    }
+    private final ImageView logo;
 
-    private void initialize() {
-        var image = new Image("logo.png");
-        var imageView = new ImageView(image);
-        imageView.setPreserveRatio(true);
-        imageView.setFitWidth(400);
-//        imageView.setFitHeight(100);
-//        imageView.setFitWidth(200);
+    private final Text passwordCaption;
 
+    private final InputGroup passwordInput;
 
-        var helpButton = new FontIcon(Material2AL.HELP);
-        var modalPane = new ModalPane();
-        var alert = new Alert(Alert.AlertType.INFORMATION);
-        helpButton.setOnMouseClicked(event -> alert.show());
-        var startHbox = new HBox();
-        startHbox.getChildren().addAll(helpButton);
-        startHbox.setAlignment(Pos.CENTER_RIGHT);
-        startHbox.setPadding(new Insets(20));
+    private final ProgressBar hashingProgress;
 
-        var passwordTitle = new Text("Enter Master Password:");
-        passwordTitle.getStyleClass().add(Styles.TITLE_2);
+    private final InputGroup checksumInputGroup;
 
-        var passwordField = new PasswordField();
-        passwordField.setPromptText("password");
-        passwordField.setAlignment(Pos.CENTER);
-        passwordField.setPrefWidth(300);
-//        passwordField.getStyleClass().addAll(Styles.ROUNDED);
+//    private final Label checksumLabel;
 
-        var button = new Button("Generate");
-//        button.getStyleClass().addAll(Styles.ROUNDED);
-        button.setDefaultButton(true);
+    private Label checksumValue;
 
-        var passwordInputGroup = new InputGroup(passwordField, button);
-        passwordInputGroup.setAlignment(Pos.CENTER);
+    private final Separator requirementsSeparator;
 
-        var hashLabel = new Label("Checksum");
-        hashLabel.getStyleClass().addAll(Styles.TEXT_CAPTION);
+    private final HBox lengthRequirement;
 
-        var label = new Label("8a08d13");
-        label.getStyleClass().addAll(Styles.TEXT_MUTED, Styles.TEXT_BOLD);
+    private final HBox caseRequirement;
 
-        var icon = new FontIcon(Material2AL.INFO);
-//        icon.getStyleClass().addAll(Styles.WARNING);
-
-        var inputGroup = new InputGroup(hashLabel, label);
-
-        var spacer = new Spacer();
-        spacer.setMaxWidth(icon.getIconSize());
-
-
-        var hbox = new HBox();
-        hbox.setSpacing(10);
-        hbox.getChildren().addAll(icon, inputGroup, spacer);
-        hbox.setAlignment(Pos.CENTER);
-
-
-        var label1 = labelWithTick("Minimum 12 characters");
-        var label2 = labelWithTick("Uppercase and lowercase letters");
-        var label3 = labelWithTick("Numbers and symbols");
-
-
-        root.getChildren().addAll(imageView , passwordTitle,passwordInputGroup,hbox, new Separator(Orientation.HORIZONTAL), label1, label2, label3);
-    }
+    private final HBox complexityRequirement;
 
     public Parent getParent() {
         return root;
     }
 
-    private HBox labelWithTick(String text) {
+    public MainView(MainController mainController, MainModel mainModel) {
+        this.controller = mainController;
+        this.model = mainModel;
+        this.root = new VBox();
+        this.logo = logo();
+        this.passwordCaption = passwordCaption();
+        this.passwordInput = passwordInput();
+        this.hashingProgress = hashingProgress();
+        this.checksumInputGroup = checksumInputGroup();
+        this.requirementsSeparator = requirementsSeparator();
+        this.lengthRequirement = requirement("Minimum 12 characters");
+        this.caseRequirement = requirement("Uppercase and lowercase letters");
+        this.complexityRequirement = requirement("Numbers and symbols");
+        initializeView();
+    }
+
+    private void initializeView() {
+        customizeRoot();
+        root.getChildren().addAll(
+                logo,
+                passwordCaption,
+                passwordInput,
+                checksumInputGroup,
+                hashingProgress,
+                requirementsSeparator,
+                lengthRequirement,
+                caseRequirement,
+                complexityRequirement
+        );
+        observeChecksum();
+    }
+
+    private void observeChecksum() {
+        model.getPasswordHashFragment().addListener((observableValue, oldValue, newValue) -> {
+            checksumValue.setText(newValue);
+        });
+    }
+
+    private void customizeRoot() {
+        root.setAlignment(Pos.CENTER);
+        root.setSpacing(20);
+        root.setPadding(new Insets(20));
+    }
+
+    private ImageView logo() {
+        var image = new Image("logo.png");
+        var imageView = new ImageView(image);
+        imageView.setPreserveRatio(true);
+        imageView.setFitWidth(400);
+        return imageView;
+    }
+
+    private Text passwordCaption() {
+        var passwordTitle = new Text("Enter Master Password:");
+        passwordTitle.getStyleClass().add(Styles.TITLE_2);
+        return passwordTitle;
+    }
+
+    private InputGroup passwordInput() {
+        var passwordField = new PasswordField();
+        passwordField.setPromptText("Master password...");
+        passwordField.setAlignment(Pos.CENTER);
+        passwordField.setPrefWidth(300);
+        var service = new MainService();
+        passwordField.setOnKeyTyped(e -> {
+            controller.onPasswordChanged(passwordField.getText());
+        });
+
+        var button = new Button("Generate");
+        button.setDefaultButton(true);
+
+        var passwordInputGroup = new InputGroup(passwordField, button);
+        passwordInputGroup.setAlignment(Pos.CENTER);
+        return passwordInputGroup;
+    }
+
+    private ProgressBar hashingProgress() {
+        var bar = new ProgressBar(0.3);
+        bar.setMinHeight(10);
+        bar.setMinWidth(200);
+        return bar;
+    }
+
+    private InputGroup checksumInputGroup() {
+        var hashLabel = new Label("Checksum");
+        hashLabel.getStyleClass().addAll(Styles.TEXT_CAPTION);
+
+        checksumValue = new Label("8a08d13");
+        checksumValue.getStyleClass().addAll(Styles.TEXT_MUTED, Styles.TEXT_BOLD);
+
+        var icon = new FontIcon(Material2AL.INFO);
+
+        var tooltip = new Tooltip("Validate your password produces\ncorrect checksum");
+
+        tooltip.setTextAlignment(TextAlignment.CENTER);
+        tooltip.setShowDelay(Duration.ZERO);
+        tooltip.setAnchorLocation(PopupWindow.AnchorLocation.WINDOW_TOP_RIGHT);
+        hashLabel.setTooltip(tooltip);
+        hashLabel.setGraphic(icon);
+        var inputGroup = new InputGroup(hashLabel, checksumValue);
+        inputGroup.setAlignment(Pos.CENTER);
+        return inputGroup;
+    }
+
+    private Separator requirementsSeparator() {
+        return new Separator(Orientation.HORIZONTAL);
+    }
+
+    private HBox requirement(String text) {
         var hbox = new HBox();
         var label = new Label(text);
         label.getStyleClass().add(Styles.TEXT_CAPTION);
@@ -116,5 +174,7 @@ public class MainView {
         hbox.setSpacing(10);
         return hbox;
     }
+
+
 
 }

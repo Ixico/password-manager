@@ -2,6 +2,7 @@ package com.ixico.passwordmanager;
 
 import atlantafx.base.theme.PrimerDark;
 import atlantafx.base.theme.PrimerLight;
+import com.ixico.passwordmanager.model.MainModel;
 import com.ixico.passwordmanager.view.MainView;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
@@ -12,16 +13,14 @@ import java.io.IOException;
 
 public class HelloApplication extends Application {
     @Override
-    public void start(Stage stage) throws IOException {
+    public void start(Stage stage) {
         Application.setUserAgentStylesheet(new PrimerDark().getUserAgentStylesheet());
-        FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("main-view.fxml"));
-//        Scene scene = new Scene(fxmlLoader.load(), 320, 240);
-        var view = new MainView();
+        var model = new MainModel();
+        var controller = new MainController(model);
+        var view = new MainView(controller, model);
         var scene = new Scene(view.getParent(), 800, 480);
-
         stage.setResizable(false);
-//        var scene = new Scene(view.getParent());
-        stage.setTitle("Hello!");
+        stage.setTitle("On-the-fly");
         stage.setScene(scene);
         stage.show();
     }
