@@ -15,6 +15,7 @@ public class MainController {
 
     public void onPasswordChanged(String text) {
         var hash = mainService.calculateHash(text);
-        mainModel.setPasswordHashFragment(hash.substring(64));
+        mainModel.setPasswordHashFragment(hash.substring(71));
+        mainModel.setCaseRequirementFulfilled(!text.toLowerCase().equals(text));
     }
 }

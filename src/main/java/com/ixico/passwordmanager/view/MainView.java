@@ -20,6 +20,8 @@ import javafx.stage.PopupWindow;
 import javafx.util.Duration;
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.kordamp.ikonli.material2.Material2AL;
+import org.kordamp.ikonli.material2.Material2OutlinedAL;
+import org.kordamp.ikonli.material2.Material2OutlinedMZ;
 
 public class MainView {
 
@@ -45,16 +47,20 @@ public class MainView {
 
     private final Separator requirementsSeparator;
 
-    private final HBox lengthRequirement;
+    private final FontIcon lengthRequirementIcon;
 
-    private final HBox caseRequirement;
+    private final FontIcon caseRequirementIcon;
 
-    private final HBox complexityRequirement;
+    private final FontIcon complexityRequirementIcon;
+
+    private final FontIcon notCompromisedRequirementIcon;
 
     public Parent getParent() {
         return root;
     }
 
+    // TODO: dodać silent mode (nie pokazuje hashu i requirementów)
+    // TODO: poprawić zmiany ikonek (może ogarnąć inną bibliotekę do nich bo brakuje)
     public MainView(MainController mainController, MainModel mainModel) {
         this.controller = mainController;
         this.model = mainModel;
@@ -65,9 +71,11 @@ public class MainView {
         this.hashingProgress = hashingProgress();
         this.checksumInputGroup = checksumInputGroup();
         this.requirementsSeparator = requirementsSeparator();
-        this.lengthRequirement = requirement("Minimum 12 characters");
-        this.caseRequirement = requirement("Uppercase and lowercase letters");
-        this.complexityRequirement = requirement("Numbers and symbols");
+        this.lengthRequirementIcon = requirementIcon();
+        this.caseRequirementIcon = requirementIcon();
+        this.complexityRequirementIcon = requirementIcon();
+        this.notCompromisedRequirementIcon = requirementIcon();
+
         initializeView();
     }
 
@@ -78,18 +86,24 @@ public class MainView {
                 passwordCaption,
                 passwordInput,
                 checksumInputGroup,
-                hashingProgress,
                 requirementsSeparator,
-                lengthRequirement,
-                caseRequirement,
-                complexityRequirement
+                requirements()
         );
         observeChecksum();
+        observeRequirements();
     }
 
     private void observeChecksum() {
         model.getPasswordHashFragment().addListener((observableValue, oldValue, newValue) -> {
             checksumValue.setText(newValue);
+        });
+    }
+
+    private void observeRequirements() {
+        model.getCaseRequirementFulfilled().addListener((observableValue, oldValue, newValue) -> {
+            caseRequirementIcon.setIconCode(Material2OutlinedAL.CHECK_CIRCLE);
+            caseRequirementIcon.getStyleClass().remove(Styles.WARNING);
+            caseRequirementIcon.getStyleClass().add(Styles.SUCCESS);
         });
     }
 
@@ -163,18 +177,51 @@ public class MainView {
         return new Separator(Orientation.HORIZONTAL);
     }
 
-    private HBox requirement(String text) {
+    private HBox requirements() {
         var hbox = new HBox();
-        var label = new Label(text);
-        label.getStyleClass().add(Styles.TEXT_CAPTION);
-        var icon = new FontIcon(Material2AL.CHECK_CIRCLE);
-        icon.getStyleClass().addAll(Styles.SUCCESS);
-        hbox.getChildren().addAll(label, icon);
+        var leftVbox = new VBox();
+        leftVbox.getChildren().addAll(
+                requirement("Minimum 12 characters", lengthRequirementIcon),
+                requirement("Numbers and symbols", complexityRequirementIcon)
+        );
+        var rightVbox = new VBox();
+        rightVbox.getChildren().addAll(
+                requirement("Uppercase and lowercase letters", caseRequirementIcon),
+                requirement("Password not compromised", notCompromisedRequirementIcon)
+        );
+        leftVbox.setSpacing(20);
+        rightVbox.setSpacing(20);
+        hbox.getChildren().addAll(leftVbox, rightVbox);
+        hbox.setSpacing(50);
         hbox.setAlignment(Pos.CENTER);
-        hbox.setSpacing(10);
         return hbox;
     }
 
+    private HBox requirement(String text, FontIcon requirementIcon) {
+        var hbox = new HBox();
+        var label = new Label(text);
+        label.getStyleClass().add(Styles.TEXT_CAPTION);
+        label.setGraphic(requirementIcon);
+        hbox.getChildren().addAll(label);
+        hbox.setAlignment(Pos.CENTER);
+        hbox.setSpacing(5);
+        return hbox;
+    }
+
+    private FontIcon requirementIcon() {
+        var icon = new FontIcon(Material2OutlinedAL.ERROR_OUTLINE);
+        icon.getStyleClass().addAll(Styles.WARNING);
+        return icon;
+    }
+
+    private Label requirementLabel(String text) {
+        var label = new Label(text);
+        label.getStyleClass().add(Styles.TEXT_CAPTION);
+        var icon = new FontIcon(Material2AL.CHECK_CIRCLE);
+        label.setGraphic(icon);
+        icon.getStyleClass().addAll(Styles.SUCCESS);
+        return label;
+    }
 
 
 }
