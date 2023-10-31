@@ -22,10 +22,10 @@ public class MainModel {
 
     public MainModel() {
         this.passwordHashFragment = new SimpleStringProperty();
-        this.lengthRequirementFulfilled = new SimpleBooleanProperty();
-        this.caseRequirementFulfilled = new SimpleBooleanProperty();
-        this.complexityRequirementFulfilled = new SimpleBooleanProperty();
-        this.notCompromisedRequirementFulfilled = new SimpleBooleanProperty();
+        this.lengthRequirementFulfilled = new SimpleBooleanProperty(false);
+        this.caseRequirementFulfilled = new SimpleBooleanProperty(false);
+        this.complexityRequirementFulfilled = new SimpleBooleanProperty(false);
+        this.notCompromisedRequirementFulfilled = new SimpleBooleanProperty(false);
     }
 
     public void setPasswordHashFragment(String value) {
@@ -41,7 +41,7 @@ public class MainModel {
     }
 
     public void setComplexityRequirementFulfilled(boolean fulfilled) {
-        complexityRequirementFulfilled.set(true);
+        complexityRequirementFulfilled.set(fulfilled);
     }
 
     public void setNotCompromisedRequirementFulfilled(boolean fulfilled) {

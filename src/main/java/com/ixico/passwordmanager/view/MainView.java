@@ -2,12 +2,18 @@ package com.ixico.passwordmanager.view;
 
 import atlantafx.base.layout.InputGroup;
 import atlantafx.base.theme.Styles;
+import atlantafx.base.util.Animations;
 import com.ixico.passwordmanager.MainController;
+import com.ixico.passwordmanager.common.ParentAware;
 import com.ixico.passwordmanager.model.MainModel;
-import com.ixico.passwordmanager.service.MainService;
+import javafx.animation.Animation;
+import javafx.animation.FadeTransition;
+import javafx.animation.Transition;
+import javafx.beans.property.BooleanProperty;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
@@ -18,34 +24,33 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.PopupWindow;
 import javafx.util.Duration;
+import lombok.Getter;
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.kordamp.ikonli.material2.Material2AL;
-import org.kordamp.ikonli.material2.Material2OutlinedAL;
-import org.kordamp.ikonli.material2.Material2OutlinedMZ;
+import org.kordamp.ikonli.material2.Material2RoundAL;
 
-public class MainView {
+public class MainView implements ParentAware {
 
     private final MainController controller;
 
     private final MainModel model;
 
-    private final VBox root;
+    @Getter
+    private final VBox parent;
 
-    private final ImageView logo;
+    private final PasswordField passwordField;
 
-    private final Text passwordCaption;
+    private final Button passwordButton;
 
-    private final InputGroup passwordInput;
+    private final Label checksumLabel;
 
-    private final ProgressBar hashingProgress;
+    private final Label lengthRequirementLabel;
 
-    private final InputGroup checksumInputGroup;
+    private final Label caseRequirementLabel;
 
-//    private final Label checksumLabel;
+    private final Label complexityRequiremenetLabel;
 
-    private Label checksumValue;
-
-    private final Separator requirementsSeparator;
+    private final Label notCompromisedRequirementLabel;
 
     private final FontIcon lengthRequirementIcon;
 
@@ -55,22 +60,18 @@ public class MainView {
 
     private final FontIcon notCompromisedRequirementIcon;
 
-    public Parent getParent() {
-        return root;
-    }
 
-    // TODO: dodać silent mode (nie pokazuje hashu i requirementów)
-    // TODO: poprawić zmiany ikonek (może ogarnąć inną bibliotekę do nich bo brakuje)
     public MainView(MainController mainController, MainModel mainModel) {
         this.controller = mainController;
         this.model = mainModel;
-        this.root = new VBox();
-        this.logo = logo();
-        this.passwordCaption = passwordCaption();
-        this.passwordInput = passwordInput();
-        this.hashingProgress = hashingProgress();
-        this.checksumInputGroup = checksumInputGroup();
-        this.requirementsSeparator = requirementsSeparator();
+        this.parent = new VBox();
+        this.passwordField = passwordField();
+        this.passwordButton = passwordButton();
+        this.checksumLabel = checksumLabel();
+        this.lengthRequirementLabel = requirementLabel("Minimum 12 characters");
+        this.caseRequirementLabel = requirementLabel("Uppercase and lowercase letters");
+        this.complexityRequiremenetLabel = requirementLabel("Numbers and symbols");
+        this.notCompromisedRequirementLabel = requirementLabel("Password not compromised");
         this.lengthRequirementIcon = requirementIcon();
         this.caseRequirementIcon = requirementIcon();
         this.complexityRequirementIcon = requirementIcon();
@@ -81,36 +82,77 @@ public class MainView {
 
     private void initializeView() {
         customizeRoot();
-        root.getChildren().addAll(
-                logo,
-                passwordCaption,
-                passwordInput,
-                checksumInputGroup,
-                requirementsSeparator,
+        parent.getChildren().addAll(
+                logo(),
+                passwordCaption(),
+                passwordInput(passwordField, passwordButton),
+                checksumInputGroup(checksumLabel),
+                requirementsSeparator(),
                 requirements()
         );
         observeChecksum();
         observeRequirements();
-    }
-
-    private void observeChecksum() {
-        model.getPasswordHashFragment().addListener((observableValue, oldValue, newValue) -> {
-            checksumValue.setText(newValue);
-        });
-    }
-
-    private void observeRequirements() {
-        model.getCaseRequirementFulfilled().addListener((observableValue, oldValue, newValue) -> {
-            caseRequirementIcon.setIconCode(Material2OutlinedAL.CHECK_CIRCLE);
-            caseRequirementIcon.getStyleClass().remove(Styles.WARNING);
-            caseRequirementIcon.getStyleClass().add(Styles.SUCCESS);
-        });
+        listenPasswordInput();
+        listenGenerateButton();
     }
 
     private void customizeRoot() {
-        root.setAlignment(Pos.CENTER);
-        root.setSpacing(20);
-        root.setPadding(new Insets(20));
+        parent.setAlignment(Pos.CENTER);
+        parent.setSpacing(20);
+        parent.setPadding(new Insets(20));
+    }
+
+    private void observeChecksum() {
+        model.getPasswordHashFragment().addListener((observableValue, oldValue, newValue) -> checksumLabel.setText(newValue));
+    }
+
+    private void observeRequirements() {
+        observeRequirement(model.getCaseRequirementFulfilled(), caseRequirementIcon);
+        observeRequirement(model.getLengthRequirementFulfilled(), lengthRequirementIcon);
+        observeRequirement(model.getComplexityRequirementFulfilled(), complexityRequirementIcon);
+        observeRequirement(model.getNotCompromisedRequirementFulfilled(), notCompromisedRequirementIcon);
+    }
+
+    private void observeRequirement(BooleanProperty booleanProperty, FontIcon fontIcon) {
+        booleanProperty.addListener((observableValue, fulfilledBefore, fulfilled) -> {
+            if (fulfilledBefore == fulfilled) return;
+            if (fulfilled) {
+                fontIcon.setIconCode(Material2RoundAL.CHECK_CIRCLE);
+                fontIcon.getStyleClass().remove(Styles.WARNING);
+                fontIcon.getStyleClass().add(Styles.SUCCESS);
+            } else {
+                fontIcon.setIconCode(Material2RoundAL.ERROR);
+                fontIcon.getStyleClass().remove(Styles.SUCCESS);
+                fontIcon.getStyleClass().add(Styles.WARNING);
+            }
+        });
+    }
+
+    private void listenPasswordInput() {
+        passwordField.setOnKeyTyped(e -> controller.onPasswordChanged(passwordField.getText()));
+    }
+
+
+    private void listenGenerateButton() {
+        passwordButton.setOnAction(e -> {
+            if (!model.getLengthRequirementFulfilled().get()) {
+                flash(lengthRequirementLabel);
+            }
+            if (!model.getCaseRequirementFulfilled().get()) {
+                flash(caseRequirementLabel);
+            }
+            if (!model.getComplexityRequirementFulfilled().get()) {
+                flash(complexityRequiremenetLabel);
+            }
+            if (!model.getNotCompromisedRequirementFulfilled().get()) {
+                flash(notCompromisedRequirementLabel);
+            }
+        });
+
+    }
+
+    private void flash(Node node) {
+        Animations.flash(node).playFromStart();
     }
 
     private ImageView logo() {
@@ -127,37 +169,37 @@ public class MainView {
         return passwordTitle;
     }
 
-    private InputGroup passwordInput() {
-        var passwordField = new PasswordField();
-        passwordField.setPromptText("Master password...");
-        passwordField.setAlignment(Pos.CENTER);
-        passwordField.setPrefWidth(300);
-        var service = new MainService();
-        passwordField.setOnKeyTyped(e -> {
-            controller.onPasswordChanged(passwordField.getText());
-        });
-
-        var button = new Button("Generate");
-        button.setDefaultButton(true);
-
-        var passwordInputGroup = new InputGroup(passwordField, button);
+    private InputGroup passwordInput(PasswordField passwordField, Button passwordButton) {
+        var passwordInputGroup = new InputGroup(passwordField, passwordButton);
         passwordInputGroup.setAlignment(Pos.CENTER);
         return passwordInputGroup;
     }
 
-    private ProgressBar hashingProgress() {
-        var bar = new ProgressBar(0.3);
-        bar.setMinHeight(10);
-        bar.setMinWidth(200);
-        return bar;
+    private PasswordField passwordField() {
+        var passwordField = new PasswordField();
+        passwordField.setPromptText("Master password...");
+        passwordField.setAlignment(Pos.CENTER);
+        passwordField.setPrefWidth(300);
+        return passwordField;
     }
 
-    private InputGroup checksumInputGroup() {
-        var hashLabel = new Label("Checksum");
-        hashLabel.getStyleClass().addAll(Styles.TEXT_CAPTION);
+    private Button passwordButton() {
+        var button = new Button("Generate");
+        button.setDefaultButton(true);
+        return button;
+    }
 
-        checksumValue = new Label("8a08d13");
-        checksumValue.getStyleClass().addAll(Styles.TEXT_MUTED, Styles.TEXT_BOLD);
+    private Label checksumLabel() {
+        var label = new Label("8d13");
+        label.setMinWidth(70);
+        label.setAlignment(Pos.CENTER);
+        label.getStyleClass().addAll(Styles.TEXT_MUTED, Styles.TEXT_BOLD);
+        return label;
+    }
+
+    private InputGroup checksumInputGroup(Label checksumLabel) {
+        var captionLabel = new Label("Checksum");
+        captionLabel.getStyleClass().addAll(Styles.TEXT_CAPTION);
 
         var icon = new FontIcon(Material2AL.INFO);
 
@@ -166,9 +208,9 @@ public class MainView {
         tooltip.setTextAlignment(TextAlignment.CENTER);
         tooltip.setShowDelay(Duration.ZERO);
         tooltip.setAnchorLocation(PopupWindow.AnchorLocation.WINDOW_TOP_RIGHT);
-        hashLabel.setTooltip(tooltip);
-        hashLabel.setGraphic(icon);
-        var inputGroup = new InputGroup(hashLabel, checksumValue);
+        captionLabel.setTooltip(tooltip);
+        captionLabel.setGraphic(icon);
+        var inputGroup = new InputGroup(captionLabel, checksumLabel);
         inputGroup.setAlignment(Pos.CENTER);
         return inputGroup;
     }
@@ -181,13 +223,13 @@ public class MainView {
         var hbox = new HBox();
         var leftVbox = new VBox();
         leftVbox.getChildren().addAll(
-                requirement("Minimum 12 characters", lengthRequirementIcon),
-                requirement("Numbers and symbols", complexityRequirementIcon)
+                requirement(lengthRequirementLabel, lengthRequirementIcon),
+                requirement(complexityRequiremenetLabel, complexityRequirementIcon)
         );
         var rightVbox = new VBox();
         rightVbox.getChildren().addAll(
-                requirement("Uppercase and lowercase letters", caseRequirementIcon),
-                requirement("Password not compromised", notCompromisedRequirementIcon)
+                requirement(caseRequirementLabel, caseRequirementIcon),
+                requirement(notCompromisedRequirementLabel, notCompromisedRequirementIcon)
         );
         leftVbox.setSpacing(20);
         rightVbox.setSpacing(20);
@@ -197,30 +239,24 @@ public class MainView {
         return hbox;
     }
 
-    private HBox requirement(String text, FontIcon requirementIcon) {
+    private HBox requirement(Label requirementLabel, FontIcon requirementIcon) {
         var hbox = new HBox();
-        var label = new Label(text);
-        label.getStyleClass().add(Styles.TEXT_CAPTION);
-        label.setGraphic(requirementIcon);
-        hbox.getChildren().addAll(label);
+        hbox.getChildren().addAll(requirementLabel, requirementIcon);
         hbox.setAlignment(Pos.CENTER);
         hbox.setSpacing(5);
         return hbox;
     }
 
-    private FontIcon requirementIcon() {
-        var icon = new FontIcon(Material2OutlinedAL.ERROR_OUTLINE);
-        icon.getStyleClass().addAll(Styles.WARNING);
-        return icon;
-    }
-
     private Label requirementLabel(String text) {
         var label = new Label(text);
         label.getStyleClass().add(Styles.TEXT_CAPTION);
-        var icon = new FontIcon(Material2AL.CHECK_CIRCLE);
-        label.setGraphic(icon);
-        icon.getStyleClass().addAll(Styles.SUCCESS);
         return label;
+    }
+
+    private FontIcon requirementIcon() {
+        var icon = new FontIcon(Material2RoundAL.ERROR);
+        icon.getStyleClass().addAll(Styles.WARNING);
+        return icon;
     }
 
 

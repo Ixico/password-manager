@@ -8,6 +8,7 @@ module com.ixico.passwordmanager {
     requires commons.logging;
     requires org.bouncycastle.provider;
     requires lombok;
+    requires commons.lang;
 
     opens com.ixico.passwordmanager to javafx.fxml;
     exports com.ixico.passwordmanager;

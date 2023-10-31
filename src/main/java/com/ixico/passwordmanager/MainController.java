@@ -2,6 +2,7 @@ package com.ixico.passwordmanager;
 
 import com.ixico.passwordmanager.model.MainModel;
 import com.ixico.passwordmanager.service.MainService;
+import org.apache.commons.lang.StringUtils;
 
 public class MainController {
 
@@ -13,9 +14,13 @@ public class MainController {
         this.mainModel = mainModel;
     }
 
-    public void onPasswordChanged(String text) {
-        var hash = mainService.calculateHash(text);
+    public void onPasswordChanged(String password) {
+        var hash = mainService.calculateHash(password);
         mainModel.setPasswordHashFragment(hash.substring(71));
-        mainModel.setCaseRequirementFulfilled(!text.toLowerCase().equals(text));
+
+        mainModel.setCaseRequirementFulfilled(!password.toLowerCase().equals(password));
+        mainModel.setComplexityRequirementFulfilled(!StringUtils.isAlphanumeric(password));
+        mainModel.setLengthRequirementFulfilled(password.length() >= 12);
+        mainModel.setNotCompromisedRequirementFulfilled(true);
     }
 }
